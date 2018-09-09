@@ -1,0 +1,6 @@
+<resources>
+    <string name="yu_file_picker_permission_request_denied">访问权限被拒绝</string>
+    <string name="yu_file_picker_title">文件选择器</string>
+    <string name="yu_file_picker_memory_card">储存卡</string>
+    <string name="yu_file_picker_device">设备</string>
+</resources>

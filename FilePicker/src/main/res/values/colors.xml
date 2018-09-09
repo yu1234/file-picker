@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="yu_file_picker_colorPrimary">#3F51B5</color>
+    <color name="yu_file_picker_colorPrimaryDark">#52bced</color>
+    <color name="yu_file_picker_colorAccent">#FF4081</color>
+</resources>

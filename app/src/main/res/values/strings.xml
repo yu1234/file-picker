@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">file-picker</string>
+    <string name="app_name">file-picker-demo</string>
     <string name="action_settings">Settings</string>
 </resources>

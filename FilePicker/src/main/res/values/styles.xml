@@ -1,0 +1,18 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="yu_file_picker_theme" parent="Theme.AppCompat.Light.NoActionBar">
+
+    </style>
+
+    <style name="yu_file_picker_theme.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    <style name="yu_file_picker_theme_toolbar" parent="yu_file_picker_theme">
+        <item name="colorPrimary">@color/yu_file_picker_colorPrimary</item>
+        <item name="colorPrimaryDark">@color/yu_file_picker_colorPrimaryDark</item>
+        <item name="colorAccent">@color/yu_file_picker_colorAccent</item>
+        <item name="toolbarStyle">@style/Widget.AppCompat.Toolbar</item>
+    </style>
+</resources>

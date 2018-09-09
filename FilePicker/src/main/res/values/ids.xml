@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="yu_file_picker_toolbar" type="id"/>
+    <item name="yu_file_picker_toolbar_title" type="id"/>
+    <item name="yu_file_picker_tabs" type="id"/>
+    <item name="yu_file_picker_view_pager" type="id"/>
+    <item name="yu_file_picker_recycler_view" type="id"/>
+    <item name="yu_file_picker_file_item" type="id"/>
+    <item name="yu_file_picker_dir_item" type="id"/>
+    <item name="yu_file_picker_dir_icon" type="id"/>
+    <item name="yu_file_picker_dir_name" type="id"/>
+</resources>
