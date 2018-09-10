@@ -12,14 +12,17 @@ import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.TextView
 import com.alibaba.fastjson.JSONObject
 import com.blankj.utilcode.util.*
+import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 import org.jetbrains.anko.*
+import org.jetbrains.anko.appcompat.v7.themedTintedCheckBox
 import org.jetbrains.anko.constraint.layout.ConstraintSetBuilder
 import org.jetbrains.anko.constraint.layout.ConstraintSetBuilder.Side.*
 import org.jetbrains.anko.constraint.layout.applyConstraintSet
@@ -78,6 +81,7 @@ class MemoryCardFragmentUI : AnkoComponent<MemoryCardFragment> {
 class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
     private val list = mutableListOf<JSONObject>()
     private val history = mutableListOf<String>()
+    val selected= mutableListOf<JSONObject>()
 
     /**
      * 初始化
@@ -117,8 +121,10 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
             holder.dirName.text = item.getString("name") ?: ""
             if ("back" == item.getString("id")) {
                 holder.dirIcon.imageResource = R.mipmap.file_icon_back_m_default
+                holder.dirRightIcon.visibility = View.GONE
             } else {
-                holder.dirIcon.imageResource = R.mipmap.attachment_icon_folder_l_default
+                holder.dirIcon.imageResource = R.mipmap.attachment_icon_folder_m_default
+                holder.dirRightIcon.visibility = View.VISIBLE
             }
         }
 
@@ -126,7 +132,11 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
         holder.view.onClick {
             val tag: JSONObject? = it?.tag as JSONObject
             if (tag?.getBoolean("isFile") == true) {
-
+                val checkBox:CheckBox = it.find(R.id.yu_file_picker_file_checkbox)
+                checkBox.isChecked= !checkBox.isChecked
+                if(checkBox.isChecked){
+                    selected.add(tag)
+                }
             } else {
                 if ("back" == tag?.getString("id")) {
                     this@FileAdapter.backPreviousDir()
@@ -174,17 +184,10 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
         if (id == "root") {
             this.loadRootDir()
         } else {
-            Single
-
-                    .create<Any> {
+            Observable
+                    .create<JSONObject> {
                         val files: MutableList<File> = FileUtils.listFilesInDir(id)
                                 ?: mutableListOf()
-                        list.clear()
-                        val jsonObject: JSONObject = JSONObject()
-                        jsonObject.put("id", "back")
-                        jsonObject.put("name", "返回")
-                        jsonObject.put("isFile", false)
-                        list.add(jsonObject)
                         for (file in files) {
                             val jsonObject: JSONObject = JSONObject()
                             jsonObject.put("pid", id)
@@ -195,13 +198,33 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
                                 jsonObject.put("size", file.length())
                                 jsonObject.put("lastModified", file.lastModified())
                             }
-                            list.add(jsonObject)
+                            it.onNext(jsonObject)
                         }
-                        it.onSuccess(1)
+                        it.onComplete()
+                    }
+                    .toSortedList { p0, p1 ->
+                        if (p0.getBoolean("isFile") && p1.getBoolean("isFile")) {
+                            p0.getString("name").compareTo(p1.getString("name"))
+                        } else if (p0.getBoolean("isFile") && !p1.getBoolean("isFile")) {
+                            1
+                        } else if (!p0.getBoolean("isFile") && p1.getBoolean("isFile")) {
+                            -1
+                        } else {
+                            p0.getString("name").compareTo(p1.getString("name"))
+                        }
                     }
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
+                    .doOnSubscribe {
+                        list.clear()
+                    }
                     .subscribe({
+                        val jsonObject: JSONObject = JSONObject()
+                        jsonObject.put("id", "back")
+                        jsonObject.put("name", "返回")
+                        jsonObject.put("isFile", false)
+                        list.add(jsonObject)
+                        list.addAll(it)
                         if (enter) {
                             this.history.add(id)
                         } else {
@@ -237,10 +260,13 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
         val dirItem: ConstraintLayout
         val dirName: TextView
         val dirIcon: ImageView
+        val dirRightIcon: ImageView
 
         val fileName: TextView
         val fileDesc: TextView
         val fileIcon: ImageView
+        var fileCheckbox: CheckBox
+
 
         val fileItem: ConstraintLayout
 
@@ -248,10 +274,12 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
             dirItem = view.find(R.id.yu_file_picker_dir_item)
             dirName = view.find(R.id.yu_file_picker_dir_name)
             dirIcon = view.find(R.id.yu_file_picker_dir_icon)
+            dirRightIcon = view.find(R.id.yu_file_picker_dir_right_icon)
             fileItem = view.find(R.id.yu_file_picker_file_item)
             fileName = view.find(R.id.yu_file_picker_file_name)
             fileDesc = view.find(R.id.yu_file_picker_file_desc)
             fileIcon = view.find(R.id.yu_file_picker_file_icon)
+            fileCheckbox = view.find(R.id.yu_file_picker_file_checkbox)
         }
     }
 
@@ -277,10 +305,10 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
                             lparams(width = 0, height = matchParent)
                             val fileName = textView {
                                 id = R.id.yu_file_picker_file_name
-                                singleLine=true
-                                ellipsize= TextUtils.TruncateAt.END
+                                singleLine = true
+                                ellipsize = TextUtils.TruncateAt.END
                                 textColor = Color.BLACK
-                                textSize =px2sp(resources.getDimensionPixelSize(R.dimen.yu_file_picker_font_size_16))
+                                textSize = px2sp(resources.getDimensionPixelSize(R.dimen.yu_file_picker_font_size_16))
                             }.lparams(width = matchParent, height = wrapContent)
                             val fileDesc = textView {
                                 id = R.id.yu_file_picker_file_desc
@@ -305,6 +333,10 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
                                 }
                             }
                         }
+
+                        var fileCheckBox = themedTintedCheckBox {
+                            id = R.id.yu_file_picker_file_checkbox
+                        }
                         applyConstraintSet {
                             fileIcon {
                                 connect(
@@ -318,6 +350,14 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
                                 connect(
                                         START to END of fileIcon,
                                         TOP to TOP of PARENT_ID,
+                                        END to START of fileCheckBox margin dip(8),
+                                        BOTTOM to BOTTOM of PARENT_ID
+                                )
+                            }
+                            fileCheckBox {
+                                connect(
+                                        START to END of fileInfoLayout,
+                                        TOP to TOP of PARENT_ID,
                                         END to END of PARENT_ID margin dip(8),
                                         BOTTOM to BOTTOM of PARENT_ID
                                 )
@@ -329,18 +369,18 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
                         id = R.id.yu_file_picker_dir_item
                         visibility = View.VISIBLE
                         lparams(width = matchParent, height = matchParent)
-                        val dirIcon = imageView(R.mipmap.attachment_icon_folder_l_default) {
+                        val dirIcon = imageView(R.mipmap.attachment_icon_folder_m_default) {
                             id = R.id.yu_file_picker_dir_icon
                         }.lparams(width = dip(45), height = dip(45))
                         val dirName = textView {
                             id = R.id.yu_file_picker_dir_name
                             textColor = Color.BLACK
                             textSize = px2sp(resources.getDimensionPixelSize(R.dimen.yu_file_picker_font_size_16))
-                            singleLine=true
-                            ellipsize= TextUtils.TruncateAt.END
+                            singleLine = true
+                            ellipsize = TextUtils.TruncateAt.END
                         }.lparams(width = 0, height = wrapContent)
                         val moreIcon = imageView(R.mipmap.form_icon_right_arrow_default) {
-                            id = View.generateViewId()
+                            id = R.id.yu_file_picker_dir_right_icon
                         }
                         applyConstraintSet {
                             dirIcon {
