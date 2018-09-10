@@ -1,5 +1,6 @@
 package yu.com.filepicker.fragment
 
+import android.graphics.Color
 import android.os.Bundle
 import android.support.constraint.ConstraintLayout
 import android.support.constraint.ConstraintSet
@@ -7,16 +8,14 @@ import android.support.constraint.ConstraintSet.PARENT_ID
 import android.support.v4.app.Fragment
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
+import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import com.alibaba.fastjson.JSONObject
-import com.blankj.utilcode.util.FileUtils
-import com.blankj.utilcode.util.LogUtils
-import com.blankj.utilcode.util.SDCardUtils
-import com.blankj.utilcode.util.ToastUtils
+import com.blankj.utilcode.util.*
 import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
@@ -30,7 +29,9 @@ import org.jetbrains.anko.sdk25.coroutines.onClick
 import org.jetbrains.anko.support.v4.ctx
 import org.jetbrains.anko.support.v4.find
 import yu.com.filepicker.R
+import yu.com.filepicker.utils.FilePickerUtils
 import java.io.File
+import java.util.*
 
 
 class MemoryCardFragment : Fragment() {
@@ -99,14 +100,25 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
         if (item.getBoolean("isFile")) {
             holder.dirItem.visibility = View.GONE
             holder.fileItem.visibility = View.VISIBLE
+            holder.fileIcon.imageResource = FilePickerUtils.getFileIconRes(item.getString("name"))
+            holder.fileName.text = item.getString("name") ?: ""
+            val size = FilePickerUtils.getReadableByteSize(item.getLong("size"))
+            val lastModified = if (item.getLong("lastModified") > 0) {
+                TimeUtils.date2String(Date(item.getLong("lastModified")))
+            } else {
+                ""
+            }
+            val desc: String = "$size  $lastModified"
+            holder.fileDesc.text = desc
+
         } else {
             holder.dirItem.visibility = View.VISIBLE
             holder.fileItem.visibility = View.GONE
             holder.dirName.text = item.getString("name") ?: ""
             if ("back" == item.getString("id")) {
-                holder.dirIcon.setImageResource(R.mipmap.file_icon_back_m_default)
+                holder.dirIcon.imageResource = R.mipmap.file_icon_back_m_default
             } else {
-                holder.dirIcon.setImageResource(R.mipmap.attachment_icon_folder_l_default)
+                holder.dirIcon.imageResource = R.mipmap.attachment_icon_folder_l_default
             }
         }
 
@@ -179,6 +191,10 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
                             jsonObject.put("id", file.path)
                             jsonObject.put("name", file.name)
                             jsonObject.put("isFile", file.isFile)
+                            if (file.isFile) {
+                                jsonObject.put("size", file.length())
+                                jsonObject.put("lastModified", file.lastModified())
+                            }
                             list.add(jsonObject)
                         }
                         it.onSuccess(1)
@@ -210,7 +226,7 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
      * 返回上一级
      */
     private fun backPreviousDir() {
-        loadFiles(this.history[this.history.size-2], false)
+        loadFiles(this.history[this.history.size - 2], false)
     }
 
 
@@ -222,6 +238,10 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
         val dirName: TextView
         val dirIcon: ImageView
 
+        val fileName: TextView
+        val fileDesc: TextView
+        val fileIcon: ImageView
+
         val fileItem: ConstraintLayout
 
         init {
@@ -229,6 +249,9 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
             dirName = view.find(R.id.yu_file_picker_dir_name)
             dirIcon = view.find(R.id.yu_file_picker_dir_icon)
             fileItem = view.find(R.id.yu_file_picker_file_item)
+            fileName = view.find(R.id.yu_file_picker_file_name)
+            fileDesc = view.find(R.id.yu_file_picker_file_desc)
+            fileIcon = view.find(R.id.yu_file_picker_file_icon)
         }
     }
 
@@ -240,20 +263,81 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
             return with(ui) {
                 constraintLayout {
                     lparams(width = matchParent, height = dip(50))
+                    //文件项
                     val fileItem = constraintLayout {
                         id = R.id.yu_file_picker_file_item
                         visibility = View.GONE
                         lparams(width = matchParent, height = matchParent)
+                        val fileIcon = imageView(R.mipmap.attachment_icon_other_m_default) {
+                            id = R.id.yu_file_picker_file_icon
+                        }.lparams(width = dip(45), height = dip(45))
+
+                        val fileInfoLayout = constraintLayout {
+                            id = View.generateViewId()
+                            lparams(width = 0, height = matchParent)
+                            val fileName = textView {
+                                id = R.id.yu_file_picker_file_name
+                                singleLine=true
+                                ellipsize= TextUtils.TruncateAt.END
+                                textColor = Color.BLACK
+                                textSize =px2sp(resources.getDimensionPixelSize(R.dimen.yu_file_picker_font_size_16))
+                            }.lparams(width = matchParent, height = wrapContent)
+                            val fileDesc = textView {
+                                id = R.id.yu_file_picker_file_desc
+                                textColor = Color.LTGRAY
+                                textSize = px2sp(resources.getDimensionPixelSize(R.dimen.yu_file_picker_font_size_14))
+                            }.lparams(width = matchParent, height = wrapContent)
+                            applyConstraintSet {
+                                fileName {
+                                    connect(
+                                            START to START of PARENT_ID,
+                                            END to END of PARENT_ID,
+                                            TOP to TOP of PARENT_ID margin dip(4)
+                                    )
+                                }
+                                fileDesc {
+                                    connect(
+                                            START to START of PARENT_ID,
+                                            END to END of PARENT_ID,
+                                            TOP to BOTTOM of fileName margin dip(4),
+                                            BOTTOM to BOTTOM of PARENT_ID margin dip(4)
+                                    )
+                                }
+                            }
+                        }
+                        applyConstraintSet {
+                            fileIcon {
+                                connect(
+                                        START to START of PARENT_ID margin dip(8),
+                                        TOP to TOP of PARENT_ID margin dip(8),
+                                        END to START of fileInfoLayout margin dip(8),
+                                        BOTTOM to BOTTOM of PARENT_ID margin dip(8)
+                                )
+                            }
+                            fileInfoLayout {
+                                connect(
+                                        START to END of fileIcon,
+                                        TOP to TOP of PARENT_ID,
+                                        END to END of PARENT_ID margin dip(8),
+                                        BOTTOM to BOTTOM of PARENT_ID
+                                )
+                            }
+                        }
                     }
+                    //文件夹项
                     val dirItem = constraintLayout {
                         id = R.id.yu_file_picker_dir_item
                         visibility = View.VISIBLE
                         lparams(width = matchParent, height = matchParent)
                         val dirIcon = imageView(R.mipmap.attachment_icon_folder_l_default) {
                             id = R.id.yu_file_picker_dir_icon
-                        }.lparams(width = dip(40), height = dip(40))
+                        }.lparams(width = dip(45), height = dip(45))
                         val dirName = textView {
                             id = R.id.yu_file_picker_dir_name
+                            textColor = Color.BLACK
+                            textSize = px2sp(resources.getDimensionPixelSize(R.dimen.yu_file_picker_font_size_16))
+                            singleLine=true
+                            ellipsize= TextUtils.TruncateAt.END
                         }.lparams(width = 0, height = wrapContent)
                         val moreIcon = imageView(R.mipmap.form_icon_right_arrow_default) {
                             id = View.generateViewId()
@@ -285,6 +369,7 @@ class FileAdapter : RecyclerView.Adapter<FileAdapter.MyViewHolder>() {
                             }
                         }
                     }
+
                     applyConstraintSet {
                         fileItem {
                             connect(

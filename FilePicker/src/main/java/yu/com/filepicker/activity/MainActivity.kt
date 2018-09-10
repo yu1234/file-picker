@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
             override fun getItem(position: Int): Fragment {
                 var fragment = Fragment()
                 when (position) {
-                    0 -> fragment=MemoryCardFragment()
+                    0 -> fragment = MemoryCardFragment()
                 }
                 return fragment
             }
